@@ -1,0 +1,157 @@
+---
+title: "Box-Cox Transformations and Economic Data Analysis in R"
+author: "Divine Gatebuka"
+date: "2025-09-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(fpp3)
+library(tidyverse)
+library(plotly) 
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```
+Project Goal
+
+The goal of this project is to explore and analyze economic time series data using the fpp3 package in R.
+Specifically, the analysis aims to:
+
+Examine GDP per capita trends across countries and identify which countries have the highest GDP per capita over time.
+
+Explore the variance and trends in a range of economic time series, including GDP, livestock slaughter, electricity demand, and gas production.
+
+Apply Box-Cox transformations where appropriate to stabilize variance and assess their impact.
+
+Understand when transformations are unnecessary and why.
+```
+
+# Goal 1: Analyze GDP per Capita Trends
+ We examine GDP per capita from the global_economy dataset to identify long-term trends and the country with the highest GDP per capita over time.
+
+```{r}
+global_economy %>%
+  mutate(GDP_per_capita = GDP / Population) %>%
+  ggplot(aes(x = Year, y = GDP_per_capita, group = Country)) +
+  geom_line() +
+  labs(title = "GDP per capita over time by country")
+```
+
+```
+Observation: The plot shows all countries together, making it difficult to identify leaders, so filtering is applied to determine the maximum.
+```
+
+```{r}
+global_economy %>%
+  mutate(GDP_per_capita = GDP / Population) %>%
+  filter(GDP_per_capita == max(GDP_per_capita, na.rm = TRUE)) %>%
+  select(Country, Year, GDP_per_capita)
+```
+```
+Result: Monaco had the highest GDP per capita in 2014, showing consistent leadership in wealth per person.
+```
+
+```{r}
+global_economy %>%
+  mutate(GDP_per_capita = GDP / Population) %>%
+  filter(Country == "Monaco") %>%
+  ggplot(aes(x = Year, y = GDP_per_capita)) +
+  geom_line(color = "darkblue", size = 1) +
+  labs(
+    title = "GDP per Capita Over Time (Monaco) ",
+    x = "Year",
+    y = "GDP per Capita"
+  ) +
+  theme_minimal()
+```
+
+#Goal 2: Explore Series and Transformations
+Explore the variance and trends in a range of economic time series, including GDP, livestock slaughter, electricity demand, and gas production.
+
+```{r United States GDP }
+global_economy %>%
+  filter(Country == "United States") %>%
+  autoplot(GDP) +
+  labs(title = "United States GDP over time")
+```
+```
+Observation: The plot shows a consistent upward trend in GDP over the decades, with an accelerating slope in recent years. The variance increases as GDP grows, suggesting a Box-Cox transformation might stabilize variance for forecasting purposes.
+```
+```{r Slaughter of Victorian “Bulls, bullocks and steers” }
+aus_livestock %>%
+  filter(Animal == "Bulls, bullocks and steers") %>%
+  autoplot(Count) +
+  labs(title = "Slaughter of Victorian Bulls, bullocks and steers over time")
+```
+```
+This series shows clear seasonality and cyclical changes over time. Peaks often occur in certain years, possibly related to market demand or agricultural cycles. Variance appears relatively stable, but a transformation could still be explored to remove seasonal fluctuations.
+```
+```{r Victorian Electricity Demand}
+vic_elec %>%
+  autoplot(Demand) +
+  labs(title = "Victorian Electricity Demand over time")
+```
+```
+The electricity demand series shows strong daily cycles, visible as repeating spikes. Longer-term trends also emerge, with periods of higher average demand. A smoothing method (like moving averages) might be more appropriate here than a transformation. The current plot is too dense plotting a shorter window, like a single month would help identify the patterns and trends present.
+```
+```{r Gas production}
+aus_production %>%
+  autoplot(Gas) +
+  labs(title = "Gas production in Australia over time")
+```
+```
+Gas production shows a clear upward trend with some variability. Next step we are going to see how to apply a Box-Cox transformation.
+```
+```{r Canadian Gas Transformation Assessment}
+lambda <- canadian_gas |>
+  features(Volume, features = guerrero) |>
+  pull(lambda_guerrero)
+
+canadian_gas |>
+  autoplot(box_cox(Volume, lambda)) +
+  labs(
+    y = "",
+    title = paste0("Box-Cox transformed Canadian gas production (λ=", round(lambda, 2), ")")
+  )
+```
+
+# Information: 
+```
+Why use Box-Cox transformations?
+
+- Useful to stabilize variance when the data is heavily skewed or has outliers
+- Make series more stationary for better modeling.
+- Guerrero’s method selects an optimal λ automatically.
+
+Why use moving averages?
+
+- Reduce noise and emphasize trends/cycles.
+- Remove seasonal patterns if window length equals cycle length.
+- Provide useful preprocessing for forecasting.
+```
+
+## Methodological Notes: GDP per Capita Visualization
+```
+When visualizing GDP per capita for all countries, the dataset includes over 200 countries.  
+Plotting all of them in a single chart creates visual congestion, with overlapping lines and an unreadable mix of colors.  
+
+To improve interpretability and clarity, the following methodology was applied:
+
+1. Subset Selection:Top 10 Countries  
+   - Countries were ranked based on their maximum GDP per capita across the available time range.  
+   - The top 10 countries were selected for visualization.  
+   - This preserves interpretability while still showing meaningful global trends.
+
+2. Color Assignment  
+   - Each country can be assigned a unique color automatically using ggplot2’s `color = Country` aesthetic to differentiate them.  
+
+3. Chart Design Considerations 
+   - Line transparency (`alpha = 0.7`) was used to reduce visual clutter.  
+   - A clean theme (`theme_minimal()`) improves readability.  
+   - Labels and legends were adjusted for clarity.  
+
+```
+
+
+
